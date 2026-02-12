@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A & C Map</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      background: #E3CCC5;
+    }
+    
+    #map {
+      position: absolute;
+      top: 240px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    
+    .header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #E3CCC5;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 1000;
+      padding: 20px;
+    }
+    
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    h1 {
+      font-family: 'Sora', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: #AD4F3D;
+      margin: 0;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: #AD4F3D;
+      opacity: 0.7;
+      margin-top: 4px;
+    }
+    
+    .btn {
+      padding: 12px 20px;
+      border-radius: 12px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    
+    .btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    
+    .btn-primary {
+      background: #E3CCC5;
+      color: #AD4F3D;
+      border: 2px solid #AD4F3D;
+      box-shadow: 0 4px 12px rgba(158, 112, 96, 0.3);
+    }
+    
+    .btn-secondary {
+      background: rgba(158, 112, 96, 0.2);
+      color: #AD4F3D;
+      border: 2px solid #AD4F3D;
+    }
+    
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .search-box {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    
+    .search-box input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      border-radius: 12px;
+      border: 2px solid #AD4F3D;
+      font-size: 15px;
+      background: #E3CCC5;
+      color: #AD4F3D;
+    }
+    
+    .search-box input:focus {
+      outline: none;
+      border-color: #AD4F3D;
+    }
+    
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #AD4F3D;
+      opacity: 0.5;
+    }
+    
+    .filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .filter-btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 2px solid #AD4F3D;
+      background: transparent;
+      color: #AD4F3D;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: capitalize;
+      transition: all 0.2s;
+    }
+    
+    .filter-btn.active {
+      background: #AD4F3D;
+      color: #E3CCC5;
+    }
+    
+    .place-card {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 500px;
+      background: #E3CCC5;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      border: 2px solid rgba(255,255,255,0.3);
+      z-index: 1000;
+      display: none;
+    }
+    
+    .place-card.visible {
+      display: block;
+      animation: slideUp 0.3s ease-out;
+    }
+    
+    @keyframes slideUp {
+      from {
+        transform: translateX(-50%) translateY(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    }
+    
+    .place-card-header {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: flex-start;
+    }
+    
+    .place-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    
+    .place-card h3 {
+      font-family: 'Sora', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: #AD4F3D;
+      margin: 0;
+    }
+    
+    .place-card .address {
+      font-size: 14px;
+      color: #AD4F3D;
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+    
+    .close-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(158, 112, 96, 0.2);
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #AD4F3D;
+    }
+    
+    .stars {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    
+    .star {
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    .star:hover {
+      transform: scale(1.2);
+    }
+    
+    .rating-text {
+      margin-left: 8px;
+      font-size: 14px;
+      color: #AD4F3D;
+      font-weight: 600;
+    }
+    
+    .date-visited {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: #AD4F3D;
+    }
+    
+    .notes {
+      margin: 16px 0;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #AD4F3D;
+      font-style: normal;
+    }
+    
+    .pictures {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 16px;
+    }
+    
+    .pictures img {
+      width: 100%;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    
+    .category-tag {
+      display: inline-block;
+      padding: 6px 14px;
+      background: rgba(158, 112, 96, 0.15);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #AD4F3D;
+      text-transform: capitalize;
+      margin-top: 16px;
+      border-top: 1px solid rgba(158, 112, 96, 0.2);
+      padding-top: 16px;
+    }
+    
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1001;
+    }
+    
+    .modal.visible {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: #E3CCC5;
+      border-radius: 24px;
+      padding: 32px;
+      max-width: 500px;
+      width: 100%;
+      border: 2px solid rgba(255,255,255,0.3);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    
+    .modal-header h2 {
+      font-family: 'Sora', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: #AD4F3D;
+      margin: 0;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #AD4F3D;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 2px solid #AD4F3D;
+      font-size: 15px;
+      background: rgba(255, 255, 255, 0.5);
+      color: #AD4F3D;
+      font-family: inherit;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #AD4F3D;
+    }
+    
+    .form-group textarea {
+      resize: vertical;
+    }
+    
+    .coords-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #AD4F3D;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    /* Leaflet Zoom Controls */
+    .leaflet-control-zoom a {
+      background-color: #E3CCC5 !important;
+      color: #AD4F3D !important;
+      border: 2px solid #AD4F3D !important;
+      width: 36px !important;
+      height: 36px !important;
+      line-height: 32px !important;
+      font-size: 20px !important;
+      font-weight: bold !important;
+      border-radius: 8px !important;
+    }
+    
+    .leaflet-control-zoom a:hover {
+      background-color: #AD4F3D !important;
+      color: #E3CCC5 !important;
+    }
+    
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 4px 12px rgba(158, 112, 96, 0.2) !important;
+    }
+    
+    .leaflet-control-zoom-in {
+      margin-bottom: 4px !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading State -->
+  <div id="loading" class="loading">Loading places from Google Sheets...</div>
+  
+  <!-- Header -->
+  <div id="header" class="header hidden">
+    <div class="header-content">
+      <div class="title-row">
+        <div>
+          <h1>A & C Map</h1>
+          <div class="subtitle"><span id="place-count">0</span> places</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="imgur-btn" title="Upload images to Imgur">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="3" width="18" height="18" rx="2" stroke="#AD4F3D" stroke-width="2" fill="none"/>
+              <circle cx="8" cy="8" r="2" fill="#AD4F3D"/>
+              <path d="M21 15l-5-5L9 17" stroke="#AD4F3D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="btn btn-secondary" id="view-sheet-btn" title="Open Google Sheet">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 3h12l6 6v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" fill="#AD4F3D"/>
+              <path d="M15 3v6h6" stroke="#AD4F3D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+          </button>
+          <button class="btn btn-primary" id="add-place-btn">
+            Add Place
+          </button>
+        </div>
+      </div>
+      
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search places...">
+      </div>
+      
+      <div class="filters" id="filters">
+        <button class="filter-btn active" data-category="all">All</button>
+        <button class="filter-btn" data-category="restaurant">Restaurant</button>
+        <button class="filter-btn" data-category="cafe">Cafe</button>
+        <button class="filter-btn" data-category="bar">Bar</button>
+        <button class="filter-btn" data-category="activity">Activity</button>
+        <button class="filter-btn" data-category="landmark">Landmark</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Map -->
+  <div id="map" class="hidden"></div>
+  
+  <!-- Place Card -->
+  <div id="place-card" class="place-card">
+    <button class="close-btn" id="close-card">✕</button>
+    <div class="place-card-header">
+      <div class="place-dot" id="card-dot"></div>
+      <div style="flex: 1;">
+        <h3 id="card-name"></h3>
+        <div class="address" id="card-address"></div>
+      </div>
+    </div>
+    <div class="pictures" id="card-pictures"></div>
+    <div class="stars" id="card-stars"></div>
+    <div class="date-visited" id="card-date"></div>
+    <div class="notes" id="card-notes"></div>
+    <div class="category-tag" id="card-category"></div>
+  </div>
+  
+  <!-- Add Place Modal -->
+  <div id="add-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add New Place</h2>
+        <button class="close-btn" id="close-modal">✕</button>
+      </div>
+      <form id="add-form">
+        <div class="form-group">
+          <label>Name *</label>
+          <input type="text" id="form-name" required>
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="form-address" style="flex: 1;">
+            <button type="button" class="btn btn-secondary" id="geocode-btn" style="white-space: nowrap;">
+              Get Coords
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Category *</label>
+          <select id="form-category" required>
+            <option value="restaurant">Restaurant</option>
+            <option value="cafe">Cafe</option>
+            <option value="bar">Bar</option>
+            <option value="activity">Activity</option>
+            <option value="landmark">Landmark</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Location *</label>
+          <div class="coords-row">
+            <input type="number" step="any" id="form-lat" placeholder="Latitude" required>
+            <input type="number" step="any" id="form-lng" placeholder="Longitude" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Date Visited</label>
+          <input type="date" id="form-date">
+        </div>
+        <div class="form-group">
+          <label>Picture 1 URL</label>
+          <input type="url" id="form-pic1" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label>Picture 2 URL</label>
+          <input type="url" id="form-pic2" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label>Picture 3 URL</label>
+          <input type="url" id="form-pic3" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label>Rating</label>
+          <div class="stars" id="form-stars"></div>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea id="form-notes" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;" id="submit-btn">
+          Add Place
+        </button>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <script>
+    // Configuration
+    const CONFIG = {
+      apiKey: 'AIzaSyCkZcDnwFrcKbfTYPBQIjrZxo6VR52gE_Y',
+      spreadsheetId: '1hKwfUkWMQTbSKvdPJu5fxXMEoD-V-OGg71bC_VwxyMg',
+      range: 'Sheet1!A:K'
+    };
+    
+    const CATEGORY_COLORS = {
+      restaurant: '#f43f5e',
+      cafe: '#d97706',
+      bar: '#a855f7',
+      activity: '#10b981',
+      landmark: '#3b82f6',
+      default: '#6b7280'
+    };
+    
+    // State
+    let map;
+    let places = [];
+    let markers = [];
+    let currentFilter = 'all';
+    let currentSearch = '';
+    let selectedPlace = null;
+    let formRating = 0;
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadPlaces();
+      initMap();
+      initEventListeners();
+      setupFormStars();
+    });
+    
+    // Google Sheets API
+    async function loadPlaces() {
+      try {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${CONFIG.range}?key=${CONFIG.apiKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (!data.values || data.values.length < 2) {
+          places = [];
+          showApp();
+          return;
+        }
+        
+        const [headers, ...rows] = data.values;
+        places = rows.map((row, index) => ({
+          id: index + 2,
+          name: row[0] || '',
+          address: row[1] || '',
+          date_visited: row[2] || '',
+          notes: row[3] || '',
+          picture1: row[4] || '',
+          picture2: row[5] || '',
+          picture3: row[6] || '',
+          latitude: parseFloat(row[7]) || 0,
+          longitude: parseFloat(row[8]) || 0,
+          category: (row[9] || 'default').toLowerCase(),
+          rating: parseInt(row[10]) || 0
+        })).filter(p => p.latitude && p.longitude);
+        
+        showApp();
+        updatePlaceCount();
+        updateMarkers();
+      } catch (error) {
+        console.error('Error loading places:', error);
+        alert('Error loading places from Google Sheets');
+      }
+    }
+    
+    async function addPlace(place) {
+      try {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${CONFIG.range}:append?valueInputOption=USER_ENTERED&key=${CONFIG.apiKey}`;
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            values: [[
+              place.name,
+              place.address,
+              place.date_visited,
+              place.notes,
+              place.picture1,
+              place.picture2,
+              place.picture3,
+              place.latitude,
+              place.longitude,
+              place.category,
+              place.rating
+            ]]
+          })
+        });
+        await loadPlaces();
+      } catch (error) {
+        console.error('Error adding place:', error);
+        throw error;
+      }
+    }
+    
+    async function updatePlace(place) {
+      try {
+        const range = `Sheet1!A${place.id}:K${place.id}`;
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED&key=${CONFIG.apiKey}`;
+        await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            values: [[
+              place.name,
+              place.address,
+              place.date_visited,
+              place.notes,
+              place.picture1,
+              place.picture2,
+              place.picture3,
+              place.latitude,
+              place.longitude,
+              place.category,
+              place.rating
+            ]]
+          })
+        });
+        await loadPlaces();
+      } catch (error) {
+        console.error('Error updating place:', error);
+        throw error;
+      }
+    }
+    
+    async function geocodeAddress(address) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
+        const response = await fetch(url, {
+          headers: { 'User-Agent': 'MapApp/1.0' }
+        });
+        const data = await response.json();
+        if (data && data.length > 0) {
+          return {
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon),
+            displayName: data[0].display_name
+          };
+        }
+        return null;
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        return null;
+      }
+    }
+    
+    // Map functions
+    function initMap() {
+      const center = places.length > 0 
+        ? [places[0].latitude, places[0].longitude]
+        : [40.7128, -74.0060];
+      
+      map = L.map('map').setView(center, 12);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      
+      // Add train routes
+      const lTrain = [[40.6995, -73.9115], [40.7065, -73.9195], [40.7086, -73.9236],
+                      [40.7115, -73.9572], [40.7148, -73.9803], [40.7308, -73.9896], [40.7377, -73.9973]];
+      const pathTrain = [[40.7377, -73.9973], [40.7447, -74.0296]];
+      
+      L.polyline(lTrain, { color: '#8B5CF6', weight: 4, opacity: 0.8 }).addTo(map);
+      L.polyline(pathTrain, { color: '#D93A30', weight: 4, opacity: 0.8 }).addTo(map);
+      
+      updateMarkers();
+    }
+    
+    function updateMarkers() {
+      if (!map) return; // Don't try to update markers if map isn't initialized yet
+      
+      markers.forEach(m => {
+        try {
+          map.removeLayer(m);
+        } catch (e) {
+          console.log('Error removing marker:', e);
+        }
+      });
+      markers = [];
+      
+      const filtered = getFilteredPlaces();
+      
+      filtered.forEach(place => {
+        const color = '#EDE75F'; // Yellow push pin color
+        const icon = L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="width: 24px; height: 30px;">
+            <svg viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Pin head (circular top) -->
+              <circle cx="12" cy="6" r="6" fill="${color}" stroke="#AD4F3D" stroke-width="1"/>
+              <!-- Pin body (needle part) -->
+              <path d="M12 12 L12 28" stroke="#AD4F3D" stroke-width="2.5" stroke-linecap="round"/>
+              <!-- Shadow/depth on pin head -->
+              <circle cx="12" cy="6" r="3" fill="#AD4F3D" opacity="0.2"/>
+            </svg>
+          </div>`,
+          iconSize: [24, 30],
+          iconAnchor: [12, 28],
+          popupAnchor: [0, -28]
+        });
+        
+        const marker = L.marker([place.latitude, place.longitude], { icon })
+          .addTo(map)
+          .on('click', () => showPlaceCard(place));
+        
+        markers.push(marker);
+      });
+    }
+    
+    function showPlaceCard(place) {
+      selectedPlace = place;
+      document.getElementById('card-name').textContent = place.name;
+      document.getElementById('card-address').textContent = place.address;
+      document.getElementById('card-dot').style.backgroundColor = '#EDE75F'; // Yellow to match pins
+      
+      // Pictures - show right after name/address
+      const pics = [place.picture1, place.picture2, place.picture3].filter(p => p);
+      if (pics.length > 0) {
+        document.getElementById('card-pictures').innerHTML = pics.map(url => 
+          `<img src="${url}" alt="Place photo">`
+        ).join('');
+        document.getElementById('card-pictures').classList.remove('hidden');
+        document.getElementById('card-pictures').style.marginTop = '16px';
+        document.getElementById('card-pictures').style.marginBottom = '16px';
+      } else {
+        document.getElementById('card-pictures').classList.add('hidden');
+      }
+      
+      // Stars
+      const starsHtml = [1, 2, 3, 4, 5].map(star => {
+        if (star <= place.rating) {
+          // Filled star
+          return `<span class="star" onclick="updateRating(${star})" style="font-size: 16px; color: #AD4F3D;">★</span>`;
+        } else {
+          // Outlined star
+          return `<span class="star" onclick="updateRating(${star})" style="font-size: 16px; color: #AD4F3D;">☆</span>`;
+        }
+      }).join('');
+      document.getElementById('card-stars').innerHTML = starsHtml + 
+        `<span class="rating-text">${place.rating > 0 ? `${place.rating}/5` : 'Not rated'}</span>`;
+      
+      // Date
+      if (place.date_visited) {
+        document.getElementById('card-date').textContent = place.date_visited;
+        document.getElementById('card-date').classList.remove('hidden');
+      } else {
+        document.getElementById('card-date').classList.add('hidden');
+      }
+      
+      // Notes
+      if (place.notes) {
+        document.getElementById('card-notes').textContent = place.notes;
+        document.getElementById('card-notes').classList.remove('hidden');
+      } else {
+        document.getElementById('card-notes').classList.add('hidden');
+      }
+      
+      document.getElementById('card-category').textContent = place.category;
+      document.getElementById('place-card').classList.add('visible');
+      
+      map.flyTo([place.latitude, place.longitude], 15);
+    }
+    
+    function updateRating(rating) {
+      if (selectedPlace) {
+        selectedPlace.rating = rating;
+        updatePlace(selectedPlace);
+      }
+    }
+    
+    // Event listeners
+    function initEventListeners() {
+      document.getElementById('add-place-btn').addEventListener('click', () => {
+        document.getElementById('add-modal').classList.add('visible');
+      });
+      
+      document.getElementById('imgur-btn').addEventListener('click', () => {
+        window.open('https://imgur.com/upload', '_blank');
+      });
+      
+      document.getElementById('view-sheet-btn').addEventListener('click', () => {
+        window.open(`https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/edit`, '_blank');
+      });
+      
+      document.getElementById('close-modal').addEventListener('click', () => {
+        document.getElementById('add-modal').classList.remove('visible');
+      });
+      
+      // Close modal when clicking outside of it
+      document.getElementById('add-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'add-modal') {
+          document.getElementById('add-modal').classList.remove('visible');
+        }
+      });
+      
+      document.getElementById('close-card').addEventListener('click', () => {
+        document.getElementById('place-card').classList.remove('visible');
+      });
+      
+      document.getElementById('search-input').addEventListener('input', (e) => {
+        currentSearch = e.target.value.toLowerCase();
+        updateMarkers();
+      });
+      
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentFilter = btn.dataset.category;
+          updateMarkers();
+        });
+      });
+      
+      document.getElementById('geocode-btn').addEventListener('click', async () => {
+        const address = document.getElementById('form-address').value;
+        if (!address) {
+          alert('Please enter an address first');
+          return;
+        }
+        
+        const btn = document.getElementById('geocode-btn');
+        btn.textContent = 'Finding...';
+        btn.disabled = true;
+        
+        const result = await geocodeAddress(address);
+        
+        if (result) {
+          document.getElementById('form-lat').value = result.latitude.toFixed(6);
+          document.getElementById('form-lng').value = result.longitude.toFixed(6);
+          alert(`✓ Found: ${result.displayName}`);
+        } else {
+          alert('Could not find coordinates for this address');
+        }
+        
+        btn.textContent = 'Get Coords';
+        btn.disabled = false;
+      });
+      
+      document.getElementById('add-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const btn = document.getElementById('submit-btn');
+        btn.textContent = 'Adding...';
+        btn.disabled = true;
+        
+        try {
+          await addPlace({
+            name: document.getElementById('form-name').value,
+            address: document.getElementById('form-address').value,
+            category: document.getElementById('form-category').value,
+            latitude: parseFloat(document.getElementById('form-lat').value),
+            longitude: parseFloat(document.getElementById('form-lng').value),
+            date_visited: document.getElementById('form-date').value,
+            picture1: document.getElementById('form-pic1').value,
+            picture2: document.getElementById('form-pic2').value,
+            picture3: document.getElementById('form-pic3').value,
+            rating: formRating,
+            notes: document.getElementById('form-notes').value
+          });
+          
+          document.getElementById('add-form').reset();
+          formRating = 0;
+          updateFormStars();
+          document.getElementById('add-modal').classList.remove('visible');
+        } catch (error) {
+          alert('Error adding place');
+        } finally {
+          btn.textContent = 'Add Place';
+          btn.disabled = false;
+        }
+      });
+    }
+    
+    function setupFormStars() {
+      const container = document.getElementById('form-stars');
+      for (let i = 1; i <= 5; i++) {
+        const star = document.createElement('span');
+        star.className = 'star';
+        star.textContent = '☆';
+        star.style.fontSize = '16px';
+        star.style.color = '#AD4F3D';
+        star.onclick = () => {
+          formRating = i;
+          updateFormStars();
+        };
+        container.appendChild(star);
+      }
+    }
+    
+    function updateFormStars() {
+      const stars = document.getElementById('form-stars').children;
+      for (let i = 0; i < 5; i++) {
+        stars[i].textContent = i < formRating ? '★' : '☆';
+        stars[i].style.color = '#AD4F3D';
+      }
+    }
+    
+    // Helpers
+    function getFilteredPlaces() {
+      return places.filter(place => {
+        const categoryMatch = currentFilter === 'all' || place.category === currentFilter;
+        const searchMatch = !currentSearch ||
+          place.name.toLowerCase().includes(currentSearch) ||
+          place.address.toLowerCase().includes(currentSearch);
+        return categoryMatch && searchMatch;
+      });
+    }
+    
+    function updatePlaceCount() {
+      document.getElementById('place-count').textContent = getFilteredPlaces().length;
+    }
+    
+    function showApp() {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('header').classList.remove('hidden');
+      document.getElementById('map').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
