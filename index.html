@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A & C Map</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- React and Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- React-Leaflet -->
+  <script src="https://unpkg.com/react-leaflet@4.2.1/dist/react-leaflet.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+    }
+    
+    #root {
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    .custom-marker {
+      background: none !important;
+      border: none !important;
+    }
+    
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    .leaflet-control-zoom a {
+      background-color: #C5D6D2 !important;
+      color: #536E66 !important;
+      border: none !important;
+      width: 36px !important;
+      height: 36px !important;
+      line-height: 36px !important;
+      font-size: 20px !important;
+      border-radius: 8px !important;
+    }
+    
+    .leaflet-control-zoom a:hover {
+      background-color: #536E66 !important;
+      color: #C5D6D2 !important;
+    }
+    
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    }
+    
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      transition: all 0.2s;
+    }
+    
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #536E66 !important;
+    }
+
+    .scroll-container {
+      overflow-y: auto;
+      max-height: 90vh;
+    }
+
+    .scroll-container::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .scroll-container::-webkit-scrollbar-track {
+      background: rgba(83, 110, 102, 0.1);
+      border-radius: 4px;
+    }
+
+    .scroll-container::-webkit-scrollbar-thumb {
+      background: rgba(83, 110, 102, 0.3);
+      border-radius: 4px;
+    }
+
+    .scroll-container::-webkit-scrollbar-thumb:hover {
+      background: rgba(83, 110, 102, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } = window.ReactLeaflet;
+    
+    // Google Sheets Configuration
+    const GOOGLE_SHEETS_CONFIG = {
+      apiKey: 'AIzaSyCkZcDnwFrcKbfTYPBQIjrZxo6VR52gE_Y',
+      spreadsheetId: '1hKwfUkWMQTbSKvdPJu5fxXMEoD-V-OGg71bC_VwxyMg',
+      range: 'Sheet1!A:K' // A=Name, B=Address, C=Date Visited, D=Notes, E=Picture 1, F=Picture 2, G=Picture 3, H=Latitude, I=Longitude, J=Category, K=Rating
+    };
+    
+    // Icons components (simplified)
+    const PlusIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+    const SearchIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
+    const XIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+    const HeartIcon = ({ filled }) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill={filled ? "#f43f5e" : "none"} stroke={filled ? "#f43f5e" : "#536E66"} strokeWidth="2">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+    );
+    const CalendarIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+    const MapPinIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>;
+    const Navigation2Icon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>;
+    const StarIcon = ({ filled }) => (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? "#fbbf24" : "none"} stroke={filled ? "#fbbf24" : "#536E66"} strokeWidth="2">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+    );
+    
+    const categoryColors = {
+      restaurant: '#f43f5e',
+      activity: '#10b981',
+      bar: '#a855f7',
+      cafe: '#d97706',
+      landmark: '#3b82f6',
+      default: '#6b7280'
+    };
+    
+    // Create custom Leaflet icon
+    const createLeafletIcon = (color, zoomLevel = 12) => {
+      const isZoomedOut = zoomLevel < 13;
+      const size = isZoomedOut ? 16 : 32;
+      const height = isZoomedOut ? 21 : 42;
+      
+      return L.divIcon({
+        className: 'custom-marker',
+        html: `
+          <div style="position: relative;">
+            <svg width="${size}" height="${height}" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 0C7.2 0 0 7.2 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.2 24.8 0 16 0Z" fill="${color}"/>
+              <circle cx="16" cy="16" r="6" fill="white"/>
+            </svg>
+          </div>
+        `,
+        iconSize: [size, height],
+        iconAnchor: [size/2, height],
+        popupAnchor: [0, -height]
+      });
+    };
+    
+    // Google Sheets Service
+    class GoogleSheetsService {
+      static async fetchPlaces() {
+        try {
+          const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.spreadsheetId}/values/${GOOGLE_SHEETS_CONFIG.range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
+          const response = await fetch(url);
+          const data = await response.json();
+          
+          if (!data.values || data.values.length < 2) {
+            return [];
+          }
+          
+          const [headers, ...rows] = data.values;
+          
+          return rows.map((row, index) => ({
+            id: index + 2,
+            name: row[0] || '',
+            address: row[1] || '',
+            date_visited: row[2] || '',
+            notes: row[3] || '',
+            picture1: row[4] || '',
+            picture2: row[5] || '',
+            picture3: row[6] || '',
+            latitude: parseFloat(row[7]) || 0,
+            longitude: parseFloat(row[8]) || 0,
+            category: row[9]?.toLowerCase() || 'default',
+            rating: parseInt(row[10]) || 0
+          })).filter(place => place.latitude && place.longitude);
+        } catch (error) {
+          console.error('Error fetching from Google Sheets:', error);
+          return [];
+        }
+      }
+      
+      static async addPlace(place) {
+        try {
+          const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.spreadsheetId}/values/${GOOGLE_SHEETS_CONFIG.range}:append?valueInputOption=USER_ENTERED&key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
+          
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              values: [[
+                place.name,
+                place.address,
+                place.date_visited || new Date().toISOString().split('T')[0],
+                place.notes || '',
+                place.picture1 || '',
+                place.picture2 || '',
+                place.picture3 || '',
+                place.latitude,
+                place.longitude,
+                place.category,
+                place.rating || 0
+              ]]
+            })
+          });
+          
+          return await response.json();
+        } catch (error) {
+          console.error('Error adding place:', error);
+          throw error;
+        }
+      }
+      
+      static async updatePlace(rowIndex, place) {
+        try {
+          const range = `Sheet1!A${rowIndex}:K${rowIndex}`;
+          const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED&key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
+          
+          const response = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              values: [[
+                place.name,
+                place.address,
+                place.date_visited || '',
+                place.notes || '',
+                place.picture1 || '',
+                place.picture2 || '',
+                place.picture3 || '',
+                place.latitude,
+                place.longitude,
+                place.category,
+                place.rating || 0
+              ]]
+            })
+          });
+          
+          return await response.json();
+        } catch (error) {
+          console.error('Error updating place:', error);
+          throw error;
+        }
+      }
+    }
+    
+    // Geocoding Service
+    class GeocodingService {
+      static async geocodeAddress(address) {
+        try {
+          const encodedAddress = encodeURIComponent(address);
+          const url = `https://nominatim.openstreetmap.org/search?q=${encodedAddress}&format=json&limit=1`;
+          
+          const response = await fetch(url, {
+            headers: { 'User-Agent': 'MapApp/1.0' }
+          });
+          
+          const data = await response.json();
+          
+          if (data && data.length > 0) {
+            return {
+              latitude: parseFloat(data[0].lat),
+              longitude: parseFloat(data[0].lon),
+              displayName: data[0].display_name
+            };
+          }
+          
+          return null;
+        } catch (error) {
+          console.error('Geocoding error:', error);
+          return null;
+        }
+      }
+    }
+    
+    // Map Controller
+    function MapController({ center, zoom }) {
+      const map = useMap();
+      
+      useEffect(() => {
+        if (center && zoom) {
+          map.flyTo(center, zoom, {
+            duration: 1.5,
+            easeLinearity: 0.25
+          });
+        }
+      }, [center, zoom, map]);
+      
+      return null;
+    }
+    
+    // Zoom Tracker
+    function ZoomTracker({ setCurrentZoom }) {
+      const map = useMap();
+      
+      useEffect(() => {
+        const updateZoom = () => setCurrentZoom(map.getZoom());
+        map.on('zoomend', updateZoom);
+        updateZoom();
+        return () => map.off('zoomend', updateZoom);
+      }, [map, setCurrentZoom]);
+      
+      return null;
+    }
+    
+    // Place Card Component
+    function PlaceCard({ place, onClose, onUpdateRating }) {
+      return (
+        <div style={{
+          background: 'linear-gradient(135deg, #C5D6D2 0%, #8FB5AB 100%)',
+          borderRadius: '20px',
+          padding: '24px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          position: 'relative',
+          backdropFilter: 'blur(10px)',
+          border: '2px solid rgba(255,255,255,0.3)'
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'rgba(83, 110, 102, 0.2)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#536E66'
+            }}
+          >
+            <XIcon />
+          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'start', gap: '12px', marginBottom: '16px' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: categoryColors[place.category] || categoryColors.default,
+              marginTop: '6px',
+              flexShrink: 0
+            }} />
+            <div style={{ flex: 1 }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#536E66',
+                fontFamily: '"Playfair Display", serif'
+              }}>
+                {place.name}
+              </h3>
+              <p style={{
+                margin: '4px 0 0',
+                fontSize: '14px',
+                color: '#536E66',
+                opacity: 0.8
+              }}>
+                {place.address}
+              </p>
+            </div>
+          </div>
+          
+          {/* Rating Stars */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <button
+                  key={star}
+                  onClick={() => onUpdateRating(place, star)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <StarIcon filled={star <= place.rating} />
+                </button>
+              ))}
+              <span style={{ marginLeft: '8px', fontSize: '14px', color: '#536E66', fontWeight: '600' }}>
+                {place.rating > 0 ? `${place.rating}/5` : 'Not rated'}
+              </span>
+            </div>
+          </div>
+          
+          {place.date_visited && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <CalendarIcon />
+              <span style={{ fontSize: '14px', color: '#536E66' }}>
+                Visited: {place.date_visited}
+              </span>
+            </div>
+          )}
+          
+          {place.notes && (
+            <p style={{
+              margin: '16px 0 0',
+              fontSize: '15px',
+              lineHeight: '1.6',
+              color: '#536E66',
+              fontStyle: 'italic'
+            }}>
+              {place.notes}
+            </p>
+          )}
+          
+          {/* Pictures */}
+          {(place.picture1 || place.picture2 || place.picture3) && (
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                {place.picture1 && (
+                  <img src={place.picture1} alt="Place 1" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                )}
+                {place.picture2 && (
+                  <img src={place.picture2} alt="Place 2" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                )}
+                {place.picture3 && (
+                  <img src={place.picture3} alt="Place 3" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                )}
+              </div>
+            </div>
+          )}
+          
+          <div style={{
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid rgba(83, 110, 102, 0.2)'
+          }}>
+            <span style={{
+              display: 'inline-block',
+              padding: '6px 14px',
+              background: 'rgba(83, 110, 102, 0.15)',
+              borderRadius: '20px',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#536E66',
+              textTransform: 'capitalize'
+            }}>
+              {place.category}
+            </span>
+          </div>
+        </div>
+      );
+    }
+    
+    // Add Place Form
+    function AddPlaceForm({ onClose, onPlaceAdded }) {
+      const [formData, setFormData] = useState({
+        name: '',
+        address: '',
+        latitude: '',
+        longitude: '',
+        category: 'restaurant',
+        notes: '',
+        date_visited: new Date().toISOString().split('T')[0],
+        picture1: '',
+        picture2: '',
+        picture3: '',
+        rating: 0
+      });
+      const [isSubmitting, setIsSubmitting] = useState(false);
+      const [useCurrentLocation, setUseCurrentLocation] = useState(false);
+      const [isGeocoding, setIsGeocoding] = useState(false);
+      
+      const handleGetLocation = () => {
+        setUseCurrentLocation(true);
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              setFormData(prev => ({
+                ...prev,
+                latitude: position.coords.latitude.toFixed(6),
+                longitude: position.coords.longitude.toFixed(6)
+              }));
+              setUseCurrentLocation(false);
+            },
+            (error) => {
+              alert('Could not get your location.');
+              setUseCurrentLocation(false);
+            }
+          );
+        }
+      };
+      
+      const handleGeocodeAddress = async () => {
+        if (!formData.address) {
+          alert('Please enter an address first');
+          return;
+        }
+        
+        setIsGeocoding(true);
+        const result = await GeocodingService.geocodeAddress(formData.address);
+        
+        if (result) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: result.latitude.toFixed(6),
+            longitude: result.longitude.toFixed(6)
+          }));
+          alert(`✓ Found: ${result.displayName}`);
+        } else {
+          alert('Could not find coordinates for this address.');
+        }
+        
+        setIsGeocoding(false);
+      };
+      
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        
+        try {
+          const newPlace = {
+            ...formData,
+            latitude: parseFloat(formData.latitude),
+            longitude: parseFloat(formData.longitude)
+          };
+          
+          await GoogleSheetsService.addPlace(newPlace);
+          onPlaceAdded(newPlace);
+        } catch (error) {
+          alert('Error adding place.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+      
+      return (
+        <div className="scroll-container" style={{
+          background: 'linear-gradient(135deg, #C5D6D2 0%, #8FB5AB 100%)',
+          borderRadius: '24px',
+          padding: '32px',
+          maxWidth: '500px',
+          width: '100%',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          border: '2px solid rgba(255,255,255,0.3)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <h2 style={{
+              margin: 0,
+              fontSize: '28px',
+              fontWeight: '700',
+              color: '#536E66',
+              fontFamily: '"Playfair Display", serif'
+            }}>
+              Add New Place
+            </h2>
+            <button onClick={onClose} style={{
+              background: 'rgba(83, 110, 102, 0.2)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#536E66'
+            }}>
+              <XIcon />
+            </button>
+          </div>
+          
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(83, 110, 102, 0.2)',
+                  fontSize: '15px',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  color: '#536E66'
+                }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Address
+              </label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="123 Main St, New York, NY"
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '2px solid rgba(83, 110, 102, 0.2)',
+                    fontSize: '15px',
+                    background: 'rgba(255, 255, 255, 0.5)',
+                    color: '#536E66'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleGeocodeAddress}
+                  disabled={isGeocoding || !formData.address}
+                  style={{
+                    background: 'rgba(83, 110, 102, 0.2)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: '#536E66',
+                    cursor: isGeocoding || !formData.address ? 'not-allowed' : 'pointer',
+                    opacity: isGeocoding || !formData.address ? 0.5 : 1,
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <MapPinIcon />
+                  {isGeocoding ? 'Finding...' : 'Get Coords'}
+                </button>
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Category *
+              </label>
+              <select
+                required
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(83, 110, 102, 0.2)',
+                  fontSize: '15px',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  color: '#536E66'
+                }}
+              >
+                <option value="restaurant">Restaurant</option>
+                <option value="cafe">Cafe</option>
+                <option value="bar">Bar</option>
+                <option value="activity">Activity</option>
+                <option value="landmark">Landmark</option>
+              </select>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                  Location *
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  disabled={useCurrentLocation}
+                  style={{
+                    background: 'rgba(83, 110, 102, 0.2)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '13px',
+                    color: '#536E66',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Navigation2Icon />
+                  {useCurrentLocation ? 'Getting...' : 'Use Current'}
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="Latitude"
+                  value={formData.latitude}
+                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '2px solid rgba(83, 110, 102, 0.2)',
+                    fontSize: '15px',
+                    background: 'rgba(255, 255, 255, 0.5)',
+                    color: '#536E66'
+                  }}
+                />
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  placeholder="Longitude"
+                  value={formData.longitude}
+                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '2px solid rgba(83, 110, 102, 0.2)',
+                    fontSize: '15px',
+                    background: 'rgba(255, 255, 255, 0.5)',
+                    color: '#536E66'
+                  }}
+                />
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Date Visited
+              </label>
+              <input
+                type="date"
+                value={formData.date_visited}
+                onChange={(e) => setFormData({ ...formData, date_visited: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(83, 110, 102, 0.2)',
+                  fontSize: '15px',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  color: '#536E66'
+                }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Picture 1 URL
+              </label>
+              <input
+                type="url"
+                value={formData.picture1}
+                onChange={(e) => setFormData({ ...formData, picture1: e.target.value })}
+                placeholder="https://example.com/image1.jpg"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(83, 110, 102, 0.2)',
+                  fontSize: '15px',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  color: '#536E66'
+                }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Picture 2 URL
+              </label>
+              <input
+                type="url"
+                value={formData.picture2}
+                onChange={(e) => setFormData({ ...formData, picture2: e.target.value })}
+                placeholder="https://example.com/image2.jpg"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(83, 110, 102, 0.2)',
+                  fontSize: '15px',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  color: '#536E66'
+                }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Picture 3 URL
+              </label>
+              <input
+                type="url"
+                value={formData.picture3}
+                onChange={(e) => setFormData({ ...formData, picture3: e.target.value })}
+                placeholder="https://example.com/image3.jpg"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(83, 110, 102, 0.2)',
+                  fontSize: '15px',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  color: '#536E66'
+                }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Rating
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, rating: star })}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <StarIcon filled={star <= formData.rating} />
+                  </button>
+                ))}
+                <span style={{ marginLeft: '8px', fontSize: '14px', color: '#536E66', fontWeight: '600' }}>
+                  {formData.rating > 0 ? `${formData.rating}/5` : 'No rating'}
+                </span>
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#536E66' }}>
+                Notes
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(83, 110, 102, 0.2)',
+                  fontSize: '15px',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  color: '#536E66',
+                  resize: 'vertical',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '12px',
+                border: 'none',
+                background: '#536E66',
+                color: '#C5D6D2',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                opacity: isSubmitting ? 0.6 : 1
+              }}
+            >
+              {isSubmitting ? 'Adding...' : 'Add Place'}
+            </button>
+          </form>
+        </div>
+      );
+    }
+    
+    // Main App
+    function MapApp() {
+      const [places, setPlaces] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+      const [selectedPlace, setSelectedPlace] = useState(null);
+      const [showAddForm, setShowAddForm] = useState(false);
+      const [filterCategory, setFilterCategory] = useState('all');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [mapCenter, setMapCenter] = useState(null);
+      const [mapZoom, setMapZoom] = useState(null);
+      const [currentZoom, setCurrentZoom] = useState(12);
+      const [isBulkGeocoding, setIsBulkGeocoding] = useState(false);
+      
+      useEffect(() => {
+        loadPlaces();
+      }, []);
+      
+      const loadPlaces = async () => {
+        setIsLoading(true);
+        const fetchedPlaces = await GoogleSheetsService.fetchPlaces();
+        setPlaces(fetchedPlaces);
+        setIsLoading(false);
+      };
+      
+      const handleUpdateRating = async (place, newRating) => {
+        const updatedPlace = { ...place, rating: newRating };
+        await GoogleSheetsService.updatePlace(place.id, updatedPlace);
+        await loadPlaces();
+      };
+      
+      const handleBulkGeocode = async () => {
+        if (!window.confirm('Find coordinates for places missing them?')) return;
+        
+        setIsBulkGeocoding(true);
+        
+        try {
+          const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.spreadsheetId}/values/${GOOGLE_SHEETS_CONFIG.range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
+          const response = await fetch(url);
+          const data = await response.json();
+          
+          if (!data.values || data.values.length < 2) {
+            alert('No data found');
+            setIsBulkGeocoding(false);
+            return;
+          }
+          
+          const [headers, ...rows] = data.values;
+          let updatedCount = 0;
+          
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowNumber = i + 2;
+            const address = row[1];
+            const lat = row[7];
+            const lon = row[8];
+            
+            if ((lat && lon) || !address) continue;
+            
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            const result = await GeocodingService.geocodeAddress(address);
+            
+            if (result) {
+              const updateRange = `Sheet1!H${rowNumber}:I${rowNumber}`;
+              const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.spreadsheetId}/values/${updateRange}?valueInputOption=USER_ENTERED&key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
+              
+              await fetch(updateUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  values: [[result.latitude, result.longitude]]
+                })
+              });
+              
+              updatedCount++;
+            }
+          }
+          
+          alert(`Updated ${updatedCount} places!`);
+          await loadPlaces();
+          
+        } catch (error) {
+          alert('Error during bulk geocoding');
+        }
+        
+        setIsBulkGeocoding(false);
+      };
+      
+      const handlePlaceAdded = async (newPlace) => {
+        await loadPlaces();
+        setShowAddForm(false);
+        setMapCenter([newPlace.latitude, newPlace.longitude]);
+        setMapZoom(15);
+      };
+      
+      const filteredPlaces = places.filter(place => {
+        const categoryMatch = filterCategory === 'all' || place.category === filterCategory;
+        const searchMatch = !searchQuery ||
+          place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          place.address.toLowerCase().includes(searchQuery.toLowerCase());
+        return categoryMatch && searchMatch;
+      });
+      
+      const defaultCenter = filteredPlaces.length > 0
+        ? [filteredPlaces[0].latitude, filteredPlaces[0].longitude]
+        : [40.7128, -74.0060];
+      
+      const lTrainRoute = [
+        [40.6995, -73.9115], [40.7065, -73.9195], [40.7086, -73.9236],
+        [40.7115, -73.9572], [40.7148, -73.9803], [40.7308, -73.9896], [40.7377, -73.9973]
+      ];
+      const pathTrainRoute = [[40.7377, -73.9973], [40.7447, -74.0296]];
+      
+      return (
+        <div style={{
+          height: '100vh',
+          width: '100%',
+          position: 'relative',
+          overflow: 'hidden',
+          backgroundColor: '#8FB5AB'
+        }}>
+          {/* Header */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            background: '#8FB5AB',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div>
+                  <h1 style={{
+                    margin: 0,
+                    fontSize: '28px',
+                    fontWeight: '700',
+                    color: '#536E66',
+                    fontFamily: '"Playfair Display", serif'
+                  }}>
+                    A & C Map
+                  </h1>
+                  <p style={{ margin: '4px 0 0', fontSize: '14px', color: '#536E66', opacity: 0.7 }}>
+                    {filteredPlaces.length} places
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={handleBulkGeocode}
+                    disabled={isBulkGeocoding}
+                    style={{
+                      background: 'rgba(83, 110, 102, 0.2)',
+                      border: '2px solid #536E66',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      color: '#536E66',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: isBulkGeocoding ? 'not-allowed' : 'pointer',
+                      opacity: isBulkGeocoding ? 0.6 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <MapPinIcon />
+                    {isBulkGeocoding ? 'Geocoding...' : 'Bulk Geocode'}
+                  </button>
+                  <button
+                    onClick={() => setShowAddForm(true)}
+                    style={{
+                      background: '#536E66',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '12px 20px',
+                      color: '#C5D6D2',
+                      fontSize: '15px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 12px rgba(83, 110, 102, 0.3)'
+                    }}
+                  >
+                    <PlusIcon />
+                    Add Place
+                  </button>
+                </div>
+              </div>
+              
+              {/* Search */}
+              <div style={{ marginBottom: '16px', position: 'relative' }}>
+                <div style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}>
+                  <SearchIcon />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search places..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px 12px 44px',
+                    borderRadius: '12px',
+                    border: '2px solid rgba(83, 110, 102, 0.2)',
+                    fontSize: '15px',
+                    background: 'rgba(255, 255, 255, 0.7)',
+                    color: '#536E66'
+                  }}
+                />
+              </div>
+              
+              {/* Filters */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {['all', 'restaurant', 'cafe', 'bar', 'activity', 'landmark'].map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setFilterCategory(cat)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '20px',
+                      border: '2px solid #536E66',
+                      background: filterCategory === cat ? '#536E66' : 'transparent',
+                      color: filterCategory === cat ? '#C5D6D2' : '#536E66',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      textTransform: 'capitalize'
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Map */}
+          <div style={{ height: '100%', width: '100%', paddingTop: '220px' }}>
+            {isLoading ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                color: '#536E66',
+                fontSize: '18px',
+                fontWeight: '600'
+              }}>
+                Loading from Google Sheets...
+              </div>
+            ) : (
+              <MapContainer
+                center={defaultCenter}
+                zoom={12}
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={true}
+              >
+                <TileLayer
+                  attribution='&copy; OpenStreetMap'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <MapController center={mapCenter} zoom={mapZoom} />
+                <ZoomTracker setCurrentZoom={setCurrentZoom} />
+                
+                <Polyline positions={lTrainRoute} pathOptions={{ color: '#8B5CF6', weight: 4, opacity: 0.8 }} />
+                <Polyline positions={pathTrainRoute} pathOptions={{ color: '#D93A30', weight: 4, opacity: 0.8 }} />
+                
+                {filteredPlaces.map((place) => (
+                  <Marker
+                    key={place.id}
+                    position={[place.latitude, place.longitude]}
+                    icon={createLeafletIcon(categoryColors[place.category] || categoryColors.default, currentZoom)}
+                    eventHandlers={{ click: () => setSelectedPlace(place) }}
+                  >
+                    <Popup>
+                      <div style={{ padding: '8px' }}>
+                        <h3 style={{ margin: '0 0 8px', fontSize: '16px', color: '#536E66' }}>{place.name}</h3>
+                        <p style={{ margin: 0, fontSize: '13px', color: '#536E66', opacity: 0.8 }}>{place.address}</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            )}
+          </div>
+          
+          {/* Selected Place Card */}
+          {selectedPlace && (
+            <div style={{
+              position: 'absolute',
+              bottom: '24px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              width: '90%',
+              maxWidth: '500px'
+            }}>
+              <PlaceCard
+                place={selectedPlace}
+                onClose={() => setSelectedPlace(null)}
+                onUpdateRating={handleUpdateRating}
+              />
+            </div>
+          )}
+          
+          {/* Add Place Form */}
+          {showAddForm && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 1001,
+              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}>
+              <AddPlaceForm
+                onClose={() => setShowAddForm(false)}
+                onPlaceAdded={handlePlaceAdded}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // Render the app
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<MapApp />);
+  </script>
+</body>
+</html>
